@@ -1,0 +1,13 @@
+# Steps :
+
+1 - Implement data loader
+    a - load users from MongoDB
+    b - load activities from MongoDB
+    c - load likes/dislikes from MongoDB
+    d - load all the data into an number_users * number_categories matrix and assign to each one the weight of the category
+
+2 - Implement K-means cluster to create the clusters
+    a - k-mean elbow method to determine the optimal number of clusters
+    b - create clusters based on euclidean distance between the users (between category weights)
+3 - Save the result model in a persistence db
+4 -
