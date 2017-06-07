@@ -50,13 +50,15 @@ def load_train_set(db):
 
         activity_categories = activities[vote['activityId']]
         value = like if bool(vote['value']) else -like
+        for category in categories:
+            if not train_set[vote['userId']].get(category):
+                train_set[vote['userId']][category] = 0
+
         for activity_category in activity_categories:
             if not train_set[vote['userId']].get(activity_category):
-                train_set[vote['userId']][activity_category] = 0
+                train_set[vote['userId']][activity_category] += value
 
-            train_set[vote['userId']][activity_category] += value
-
-    print(train_set)
+    return np.array([[train_set[user][category] for category in sorted(train_set[user])] for user in sorted(train_set)])
 
 
 db = _connect_mongo("localhost", "trip_opt")
