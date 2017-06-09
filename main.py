@@ -22,15 +22,7 @@ def _connect_mongo(host, db, port=27017, username=None, password=None):
     return conn[db]
 
 
-def load_train_set(db):
-    # Like value
-    like = 0.002
-    """ Result train_set """
-    train_set = {}
-
-    """ Load the list of users from the db"""
-    users = db['user'].find()
-
+def load_activities_categories(db):
     """ Load the list of activities from the db """
     activities_categories = db['CategoryActivity'].find()
     activities = {}
@@ -41,11 +33,21 @@ def load_train_set(db):
             activities[activity_category['activityId']] = [activity_category['categoryId']]
         else:
             activities[activity_category['activityId']].append(activity_category['categoryId'])
+    return categories, activities
+
+
+def load_train_set(db):
+    # Like value
+    like = 0.002
+    """ Result train_set """
+    train_set = {}
+
+    (categories, activities) = load_activities_categories(db)
 
     """ Load the list of votes from the db"""
     votes = db['Vote'].find()
+
     for vote in votes:
-        user_index = 0
         if not train_set.get(vote['userId']):
             train_set[vote['userId']] = {}
 
@@ -222,25 +224,28 @@ def redim(x, layer_sizes):
     }
 
 
+def elbow_algorithm():
+    # Init the maximum number of clusters
+    max_k = 15
+    # Initialize the error array
+    sse = [0 for h in xrange(max_k)]
+    # Iterate over the possible number of clusters
+    for i in range(3, max_k + 1):
+        # Run the clustering algorithm
+        (centroids, assignments) = k_means_cluster(train_set, i)
+        # Construct an array of clusters and there data points
+        cluster_assignments = [[] for h in xrange(i)]
+        for assignment_idx in xrange(len(assignments)):
+            cluster_assignments[assignments[assignment_idx]].append(train_set[assignment_idx])
+        # For each cluster compute the mean squared error
+        for idx, cluster in enumerate(cluster_assignments):
+            mean = centroids[idx]
+            for data_point in cluster:
+                sse[i - 3] += ((data_point - mean) ** 2).mean()
+    return sse
+
+
 db = _connect_mongo("localhost", "trip_opt")
 train_set = load_train_set(db)
-reconstructed_train_set = redim(tf.cast(tf.stack(train_set), tf.float32), [1])["decoded"]
-print(reconstructed_train_set)
-## Do The elbow algorithm
-# Init the maximum number of clusters
-max_k = 15
-# Iterate over the possible number of clusters
-for i in range(3, max_k + 1):
-    # Run the clustering algorithm
-    (centroids, assignments) = k_means_cluster(train_set, i)
-    # Construct an array of clusters and there data points
-    cluster_assignments = [[] for h in xrange(i)]
-    sse = [0 for h in xrange(i)]
-    for i in xrange(len(assignments)):
-        cluster_assignments[assignments[i]].append(train_set[i])
-    # For each cluster compute the mean squared error
-    for idx, cluster in enumerate(cluster_assignments):
-        mean = centroids[idx]
-        for data_point in cluster:
-            sse[idx] += ((data_point - mean) ** 2).mean()
-        print(sse[idx])
+sse = elbow_algorithm()
+print(min(sse))
