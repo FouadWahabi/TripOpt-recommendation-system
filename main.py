@@ -1,14 +1,14 @@
 from __future__ import division
 from __future__ import print_function
 
-import time
-import sys
+import matplotlib.pyplot as plt
 from pylab import *
 import numpy as np
 import tensorflow as tf
 from random import choice, shuffle
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+from tensorflow.tensorboard.tensorboard import FLAGS
 
 
 def _connect_mongo(host, db, port=27017, username=None, password=None):
@@ -175,6 +175,72 @@ def k_means_cluster(vectors, noofclusters):
         return centroids, assignments
 
 
+def redim(x, layer_sizes):
+    # Build the encoding layers
+    next_layer_input = x
+
+    encoding_matrices = []
+    for dim in layer_sizes:
+        input_dim = int(next_layer_input.get_shape()[1])
+
+        # Initialize W using random values in interval [-1/sqrt(n) , 1/sqrt(n)]
+        W = tf.Variable(
+            tf.random_uniform([input_dim, dim], -1.0 / math.sqrt(input_dim), 1.0 / math.sqrt(input_dim)))
+
+        # Initialize b to zero
+        b = tf.Variable(tf.zeros([dim]))
+
+        # We are going to use tied-weights so store the W matrix for later reference.
+        encoding_matrices.append(W)
+
+        output = tf.nn.tanh(tf.matmul(next_layer_input, W) + b)
+
+        # the input into the next layer is the output of this layer
+        next_layer_input = output
+
+    # The fully encoded x value is now stored in the next_layer_input
+    encoded_x = next_layer_input
+
+    # build the reconstruction layers by reversing the reductions
+    layer_sizes.reverse()
+    encoding_matrices.reverse()
+
+    for i, dim in enumerate(layer_sizes[1:] + [int(x.get_shape()[1])]):
+        # we are using tied weights, so just lookup the encoding matrix for this step and transpose it
+        W = tf.transpose(encoding_matrices[i])
+        b = tf.Variable(tf.zeros([dim]))
+        output = tf.nn.tanh(tf.matmul(next_layer_input, W) + b)
+        next_layer_input = output
+
+    # the fully encoded and reconstructed value of x is here:
+    reconstructed_x = next_layer_input
+
+    return {
+        'encoded': encoded_x,
+        'decoded': reconstructed_x,
+        'cost': tf.sqrt(tf.reduce_mean(tf.square(x - reconstructed_x)))
+    }
+
+
 db = _connect_mongo("localhost", "trip_opt")
 train_set = load_train_set(db)
-print(k_means_cluster(train_set, 3))
+reconstructed_train_set = redim(tf.cast(tf.stack(train_set), tf.float32), [1])["decoded"]
+print(reconstructed_train_set)
+## Do The elbow algorithm
+# Init the maximum number of clusters
+max_k = 15
+# Iterate over the possible number of clusters
+for i in range(3, max_k + 1):
+    # Run the clustering algorithm
+    (centroids, assignments) = k_means_cluster(train_set, i)
+    # Construct an array of clusters and there data points
+    cluster_assignments = [[] for h in xrange(i)]
+    sse = [0 for h in xrange(i)]
+    for i in xrange(len(assignments)):
+        cluster_assignments[assignments[i]].append(train_set[i])
+    # For each cluster compute the mean squared error
+    for idx, cluster in enumerate(cluster_assignments):
+        mean = centroids[idx]
+        for data_point in cluster:
+            sse[idx] += ((data_point - mean) ** 2).mean()
+        print(sse[idx])
