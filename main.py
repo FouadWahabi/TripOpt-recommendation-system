@@ -61,7 +61,8 @@ def load_train_set(db):
             if not train_set[vote['userId']].get(activity_category):
                 train_set[vote['userId']][activity_category] += value
 
-    return np.array([[train_set[user][category] for category in sorted(train_set[user])] for user in sorted(train_set)])
+    return np.array([user for user in sorted(train_set)]), np.array(
+        [[train_set[user][category] for category in sorted(train_set[user])] for user in sorted(train_set)])
 
 
 def k_means_cluster(vectors, noofclusters):
@@ -164,12 +165,14 @@ def k_means_cluster(vectors, noofclusters):
                 # Collect all the vectors assigned to this cluster
                 assigned_vects = [vectors[i] for i in range(len(vectors))
                                   if sess.run(assignments[i]) == cluster_n]
-                # Compute new centroid location
-                new_location = sess.run(mean_op, feed_dict={
-                    mean_input: array(assigned_vects)})
-                # Assign value to appropriate variable
-                sess.run(cent_assigns[cluster_n], feed_dict={
-                    centroid_value: new_location})
+
+                if assigned_vects:
+                    # Compute new centroid location
+                    new_location = sess.run(mean_op, feed_dict={
+                        mean_input: array(assigned_vects)})
+                    # Assign value to appropriate variable
+                    sess.run(cent_assigns[cluster_n], feed_dict={
+                        centroid_value: new_location})
 
         # Return centroids and assignments
         centroids = sess.run(centroids)
@@ -224,28 +227,76 @@ def redim(x, layer_sizes):
     }
 
 
-def elbow_algorithm():
-    # Init the maximum number of clusters
-    max_k = 15
+def create_cluster_assignments(train_set, users_idx, assignments, noofclusters):
+    """ Group datapoints by clustes """
+    cluster_assignments = [[] for h in xrange(noofclusters)]
+    cluster_users = [[] for h in xrange(noofclusters)]
+    for assignment_idx in xrange(len(assignments)):
+        cluster_assignments[assignments[assignment_idx]].append(train_set[assignment_idx])
+        cluster_users[assignments[assignment_idx]].append(users_idx[assignment_idx])
+    return cluster_assignments, cluster_users
+
+
+def plot_clusters(data_points, users_idx, centroids, assignments):
+    import matplotlib.pyplot as plt
+    """ Plot out the different clusters """
+
+    # Choose a different colour for each cluster
+    colour = plt.cm.rainbow(np.linspace(0, 1, len(centroids)))
+
+    cluster_assignments, cluster_users = create_cluster_assignments(data_points, users_idx, assignments, len(centroids))
+
+    for i, assignement in enumerate(cluster_assignments):
+        centroid = centroids[i]
+        print(np.array(assignement)[:, 0])
+        plt.scatter(np.array(assignement)[:, 0], np.array(assignement)[:, 1], c=colour[i])
+        # Also plot centroid
+        plt.plot(centroid[0], centroid[1], markersize=35, marker="x", color='k', mew=10)
+        plt.plot(centroid[0], centroid[1], markersize=30, marker="x", color='m', mew=5)
+    plt.show()
+
+
+def elbow_algorithm(train_set, users_idx, max_k=15):
     # Initialize the error array
-    sse = [0 for h in xrange(max_k)]
+    sse = [0 for h in xrange(3, max_k + 1)]
+    centroids_k = []
+    assignments_k = []
     # Iterate over the possible number of clusters
     for i in range(3, max_k + 1):
         # Run the clustering algorithm
         (centroids, assignments) = k_means_cluster(train_set, i)
+        centroids_k.append(centroids)
+        assignments_k.append(assignments)
         # Construct an array of clusters and there data points
-        cluster_assignments = [[] for h in xrange(i)]
-        for assignment_idx in xrange(len(assignments)):
-            cluster_assignments[assignments[assignment_idx]].append(train_set[assignment_idx])
+        cluster_assignments, cluster_users = create_cluster_assignments(train_set, users_idx, assignments, i)
         # For each cluster compute the mean squared error
         for idx, cluster in enumerate(cluster_assignments):
             mean = centroids[idx]
             for data_point in cluster:
                 sse[i - 3] += ((data_point - mean) ** 2).mean()
-    return sse
+    best_sse, best_k = min((val, idx) for (idx, val) in enumerate(sse))
+    return best_k + 3, centroids_k[best_k], assignments_k[best_k]
 
 
-db = _connect_mongo("localhost", "trip_opt")
-train_set = load_train_set(db)
-sse = elbow_algorithm()
-print(min(sse))
+def save_rec_data(db, train_set, users_idx, assignments, centroids, best_k):
+    # Cleanup rec cb
+    db.centroids.delete_many({})
+    db.assignments.delete_many({})
+    # Group users and assignments by clusters
+    cluster_assignments, cluster_users = create_cluster_assignments(train_set, users_idx, assignments, best_k)
+    # Insert new rec data
+    for idx, centroid in enumerate(centroids):
+        centroid_doc = db.centroids.insert_one({
+            "data": centroid.tolist()
+        })
+        assignment_docs = db.assignments.insert_many([{
+                                                          "userId": user,
+                                                          "centroidId": centroid_doc.inserted_id
+                                                      } for user in cluster_users[idx]])
+
+
+train_db = _connect_mongo("localhost", "trip_opt")
+users_idx, train_set = load_train_set(train_db)
+best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 15)
+rec_db = _connect_mongo("localhost", "trip_opt_rec")
+save_rec_data(rec_db, train_set, users_idx, assignments, centroids, best_k)
