@@ -24,6 +24,8 @@ def _connect_mongo(host, db, port=27017, username=None, password=None):
 
 def load_activities_categories(db):
     """ Load the list of activities from the db """
+    # Returns the list of uniq categories and a dict keyed 
+    # with activityID and value= list of categories assigned to activity
     activities_categories = db['CategoryActivity'].find()
     activities = {}
     categories = set([])
@@ -36,6 +38,11 @@ def load_activities_categories(db):
     return categories, activities
 
 
+def get_all_users(db):
+    active_users = db['Vote'].distinct("userId")
+    return active_users
+
+
 def create_activities_categories_array(categories, activities):
     return np.array(
         [[1 if category in activities[activity] else 0 for category in categories] for activity in activities])
@@ -46,26 +53,27 @@ def load_train_set(db):
     like = 0.002
     """ Result train_set """
     train_set = {}
-
     (categories, activities) = load_activities_categories(db)
-
+    active_users = get_all_users(db)
+    # zero fill the matrix of user, category with 0 for all non assigned category
+    # this can be done outside of the loop 
+    for usr in active_users:
+        train_set[str(usr)] = {}
+        for category in categories:
+            train_set[str(usr)][category] = {}
+            train_set[str(usr)][category] = 0
     """ Load the list of votes from the db"""
-    votes = db['Vote'].find()
-
+    votes = db['Vote'].find({'userId': {'$exists': True}})
+    # Iterate through the votes
+    #   | Initiate users training with empty dict
+    #   | Get the categories of liked/disliked activity 
     for vote in votes:
-        if not train_set.get(vote['userId']):
-            train_set[vote['userId']] = {}
-
+        usr = vote['userId']
         activity_categories = activities[vote['activityId']]
         value = like if bool(vote['value']) else -like
-        for category in categories:
-            if not train_set[vote['userId']].get(category):
-                train_set[vote['userId']][category] = 0
-
+        # For relevent categories, add the value to the 
         for activity_category in activity_categories:
-            if not train_set[vote['userId']].get(activity_category):
-                train_set[vote['userId']][activity_category] += value
-
+            train_set[str(usr)][activity_category] += value
     return np.array([user for user in sorted(train_set)]), np.array(
         [[train_set[user][category] for category in sorted(train_set[user])] for user in sorted(train_set)])
 
@@ -91,7 +99,7 @@ def k_means_cluster(vectors, noofclusters):
 
         sess = tf.Session()
 
-        # Initialize centroid vectors
+        # Initialize centroid vectors by picking random centroids
         centroids = [tf.Variable((vectors[vector_indices[i]]))
                      for i in range(noofclusters)]
         # Node to Create centroid variables
@@ -261,13 +269,14 @@ def plot_clusters(data_points, users_idx, centroids, assignments):
     plt.show()
 
 
-def elbow_algorithm(train_set, users_idx, max_k=15):
+def elbow_algorithm(train_set, users_idx, max_k=2):
     # Initialize the error array
-    sse = [0 for h in xrange(3, max_k + 1)]
+    min_k = 1
+    sse = [0 for h in xrange(min_k, max_k + 1)]
     centroids_k = []
     assignments_k = []
     # Iterate over the possible number of clusters
-    for i in range(3, max_k + 1):
+    for i in range(min_k, max_k + 1):
         # Run the clustering algorithm
         (centroids, assignments) = k_means_cluster(train_set, i)
         centroids_k.append(centroids)
@@ -278,9 +287,9 @@ def elbow_algorithm(train_set, users_idx, max_k=15):
         for idx, cluster in enumerate(cluster_assignments):
             mean = centroids[idx]
             for data_point in cluster:
-                sse[i - 3] += ((data_point - mean) ** 2).mean()
+                sse[i - min_k] += ((data_point - mean) ** 2).mean()
     best_sse, best_k = min((val, idx) for (idx, val) in enumerate(sse))
-    return best_k + 3, centroids_k[best_k], assignments_k[best_k]
+    return best_k + min_k, centroids_k[best_k], assignments_k[best_k]
 
 
 def save_rec_data(db, train_set, users_idx, assignments, centroids, best_k):
@@ -314,11 +323,16 @@ def load_rec_data(db):
 
 train_db = _connect_mongo("localhost", "trip_opt")
 users_idx, train_set = load_train_set(train_db)
-best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 4)
+best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 3)
+cluster_assignments, cluster_users = create_cluster_assignments(train_set, users_idx, assignments, best_k)
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 save_rec_data(rec_db, train_set, users_idx, assignments, centroids, best_k)
-
-
+print(centroids)
+print(assignments)
+print(cluster_assignments)
+print(cluster_users)
+print(type(centroids))
+print(type(assignments))
 """
 
 ## Load the rec data
