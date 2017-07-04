@@ -311,32 +311,25 @@ def save_rec_data(db, train_set, users_idx, assignments, centroids, best_k):
 
 def load_rec_data(db):
     centroids = []
-    assignments = []
+    assignments = [[] for i in xrange(db.centroids.count({}))]
     centroids_data = db.centroids.find({})
-    assignments_data = db.assignments.find({})
-    for centroid_data in centroids_data:
+    for idx, centroid_data in enumerate(centroids_data):
         centroids.append(np.array(centroid_data['data']))
+        assignments_data = db.assignments.find({'centroidId': centroid_data['_id']})
+        for assignment_data in assignments_data:
+            assignments[idx].append(assignment_data['userId'])
+    return centroids, assignments
 
-    for assignment_data in assignments_data:
-        assignments.append({'userId': assignment_data['userId'], 'centroidId': assignment_data['centroidId']})
 
-
+"""
 train_db = _connect_mongo("localhost", "trip_opt")
 users_idx, train_set = load_train_set(train_db)
 best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 3)
 cluster_assignments, cluster_users = create_cluster_assignments(train_set, users_idx, assignments, best_k)
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 save_rec_data(rec_db, train_set, users_idx, assignments, centroids, best_k)
-print(centroids)
-print(assignments)
-print(cluster_assignments)
-print(cluster_users)
-print(type(centroids))
-print(type(assignments))
 """
 
 ## Load the rec data
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
-(centroids, assignmetns) = load_rec_data(rec_db)
-
-"""
+(centroids, assignments) = load_rec_data(rec_db)
