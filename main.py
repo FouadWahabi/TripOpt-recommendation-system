@@ -296,8 +296,11 @@ def save_rec_data(db, train_set, users_idx, assignments, centroids, best_k):
     # Cleanup rec cb
     db.centroids.delete_many({})
     db.assignments.delete_many({})
+    db.users.delete_many({})
     # Group users and assignments by clusters
     cluster_assignments, cluster_users = create_cluster_assignments(train_set, users_idx, assignments, best_k)
+    users_weights = [item for sublist in cluster_assignments for item in sublist]
+    users_id = [item for sublist in cluster_users for item in sublist]
     # Insert new rec data
     for idx, centroid in enumerate(centroids):
         centroid_doc = db.centroids.insert_one({
@@ -307,6 +310,9 @@ def save_rec_data(db, train_set, users_idx, assignments, centroids, best_k):
                                                           "userId": user,
                                                           "centroidId": centroid_doc.inserted_id
                                                       } for user in cluster_users[idx]])
+    # Save users
+    for idx, user_weights in enumerate(users_weights):
+        db.users.insert_one({'userId': users_id[idx], 'data': user_weights.tolist()})
 
 
 def load_rec_data(db):
@@ -332,7 +338,6 @@ def load_activities_categories_matrix(db):
     return categories, activities_categories
 
 
-"""
 # Training and model creation step
 train_db = _connect_mongo("localhost", "trip_opt")
 users_idx, train_set = load_train_set(train_db)
@@ -340,8 +345,8 @@ best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 3)
 cluster_assignments, cluster_users = create_cluster_assignments(train_set, users_idx, assignments, best_k)
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 save_rec_data(rec_db, train_set, users_idx, assignments, centroids, best_k)
-"""
 
+"""
 # Load the rec model
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 (centroids, assignments) = load_rec_data(rec_db)
@@ -351,3 +356,7 @@ train_db = _connect_mongo("localhost", "trip_opt")
 categories, activities_categories = load_activities_categories_matrix(train_db)
 activities_categories_matrix = np.array(list(activities_categories.values()))
 print(activities_categories_matrix.dot(centroids[0].T))
+for centroid in centroids:
+    print(np.linalg.norm(centroid - np.array()))
+# Assing user to cluster
+"""
