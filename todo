@@ -10,4 +10,6 @@
     a - k-mean elbow method to determine the optimal number of clusters
     b - create clusters based on euclidean distance between the users (between category weights)
 3 - Save the result model in a persistence db
-4 -
+4 - Load the result model from persistence db
+5 - Load activities
+6 -

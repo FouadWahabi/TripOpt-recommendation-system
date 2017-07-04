@@ -24,7 +24,7 @@ def _connect_mongo(host, db, port=27017, username=None, password=None):
 
 def load_activities_categories(db):
     """ Load the list of activities from the db """
-    # Returns the list of uniq categories and a dict keyed 
+    # Returns the list of uniq categories and a dict keyed
     # with activityID and value= list of categories assigned to activity
     activities_categories = db['CategoryActivity'].find()
     activities = {}
@@ -35,7 +35,7 @@ def load_activities_categories(db):
             activities[activity_category['activityId']] = [activity_category['categoryId']]
         else:
             activities[activity_category['activityId']].append(activity_category['categoryId'])
-    return categories, activities
+    return sorted(categories), activities
 
 
 def get_all_users(db):
@@ -56,7 +56,7 @@ def load_train_set(db):
     (categories, activities) = load_activities_categories(db)
     active_users = get_all_users(db)
     # zero fill the matrix of user, category with 0 for all non assigned category
-    # this can be done outside of the loop 
+    # this can be done outside of the loop
     for usr in active_users:
         train_set[str(usr)] = {}
         for category in categories:
@@ -66,12 +66,12 @@ def load_train_set(db):
     votes = db['Vote'].find({'userId': {'$exists': True}})
     # Iterate through the votes
     #   | Initiate users training with empty dict
-    #   | Get the categories of liked/disliked activity 
+    #   | Get the categories of liked/disliked activity
     for vote in votes:
         usr = vote['userId']
         activity_categories = activities[vote['activityId']]
         value = like if bool(vote['value']) else -like
-        # For relevent categories, add the value to the 
+        # For relevent categories, add the value to the
         for activity_category in activity_categories:
             train_set[str(usr)][activity_category] += value
     return np.array([user for user in sorted(train_set)]), np.array(
@@ -321,7 +321,19 @@ def load_rec_data(db):
     return centroids, assignments
 
 
+def load_activities_categories_matrix(db):
+    (categories, activities) = load_activities_categories(db)
+    activities_categories = {}
+    for act in activities.keys():
+        activities_categories[act] = [0] * len(categories)
+        for categ in activities[act]:
+            categ_index = categories.index(categ)
+            activities_categories[act][categ_index] = 1
+    return categories, activities_categories
+
+
 """
+# Training and model creation step
 train_db = _connect_mongo("localhost", "trip_opt")
 users_idx, train_set = load_train_set(train_db)
 best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 3)
@@ -330,6 +342,12 @@ rec_db = _connect_mongo("localhost", "trip_opt_rec")
 save_rec_data(rec_db, train_set, users_idx, assignments, centroids, best_k)
 """
 
-## Load the rec data
+# Load the rec model
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 (centroids, assignments) = load_rec_data(rec_db)
+
+# Recommendation step
+train_db = _connect_mongo("localhost", "trip_opt")
+categories, activities_categories = load_activities_categories_matrix(train_db)
+activities_categories_matrix = np.array(list(activities_categories.values()))
+print(activities_categories_matrix.dot(centroids[0].T))
