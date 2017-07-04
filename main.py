@@ -36,6 +36,11 @@ def load_activities_categories(db):
     return categories, activities
 
 
+def create_activities_categories_array(categories, activities):
+    return np.array(
+        [[1 if category in activities[activity] else 0 for category in categories] for activity in activities])
+
+
 def load_train_set(db):
     # Like value
     like = 0.002
@@ -295,8 +300,29 @@ def save_rec_data(db, train_set, users_idx, assignments, centroids, best_k):
                                                       } for user in cluster_users[idx]])
 
 
+def load_rec_data(db):
+    centroids = []
+    assignments = []
+    centroids_data = db.centroids.find({})
+    assignments_data = db.assignments.find({})
+    for centroid_data in centroids_data:
+        centroids.append(np.array(centroid_data['data']))
+
+    for assignment_data in assignments_data:
+        assignments.append({'userId': assignment_data['userId'], 'centroidId': assignment_data['centroidId']})
+
+
 train_db = _connect_mongo("localhost", "trip_opt")
 users_idx, train_set = load_train_set(train_db)
-best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 15)
+best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 4)
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 save_rec_data(rec_db, train_set, users_idx, assignments, centroids, best_k)
+
+
+"""
+
+## Load the rec data
+rec_db = _connect_mongo("localhost", "trip_opt_rec")
+(centroids, assignmetns) = load_rec_data(rec_db)
+
+"""
