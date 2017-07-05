@@ -9,6 +9,7 @@ from random import choice, shuffle
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from tensorflow.tensorboard.tensorboard import FLAGS
+import operator
 
 
 def _connect_mongo(host, db, port=27017, username=None, password=None):
@@ -338,6 +339,15 @@ def load_activities_categories_matrix(db):
     return categories, activities_categories
 
 
+def get_user_weights_cluster(db, userId):
+    user_data = db.users.find_one({'userId': userId})
+    # TODO : user existence verification
+    assignment_data = db.assignments.find_one({'userId': userId})
+    centroid_data = np.array(db.centroids.find_one({'_id': assignment_data['centroidId']})['data'])
+    return user_data, centroid_data
+
+
+"""
 # Training and model creation step
 train_db = _connect_mongo("localhost", "trip_opt")
 users_idx, train_set = load_train_set(train_db)
@@ -345,8 +355,8 @@ best_k, centroids, assignments = elbow_algorithm(train_set, users_idx, 3)
 cluster_assignments, cluster_users = create_cluster_assignments(train_set, users_idx, assignments, best_k)
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 save_rec_data(rec_db, train_set, users_idx, assignments, centroids, best_k)
-
 """
+
 # Load the rec model
 rec_db = _connect_mongo("localhost", "trip_opt_rec")
 (centroids, assignments) = load_rec_data(rec_db)
@@ -355,8 +365,14 @@ rec_db = _connect_mongo("localhost", "trip_opt_rec")
 train_db = _connect_mongo("localhost", "trip_opt")
 categories, activities_categories = load_activities_categories_matrix(train_db)
 activities_categories_matrix = np.array(list(activities_categories.values()))
-print(activities_categories_matrix.dot(centroids[0].T))
-for centroid in centroids:
-    print(np.linalg.norm(centroid - np.array()))
-# Assing user to cluster
-"""
+
+# Assign user to cluster
+userId = "58f5170641e4cc9074048e31"
+user, centroid_data = get_user_weights_cluster(rec_db, userId)
+user_weights = np.array(user['data'])
+activities_scores = activities_categories_matrix.dot(centroid_data.T)
+recommendation = {}
+for idx, activity_score in enumerate(activities_scores):
+    recommendation[activities_categories.keys()[idx]] = activity_score
+sorted_recommendation = sorted(recommendation.items(), key=operator.itemgetter(0))
+print(sorted_recommendation)
