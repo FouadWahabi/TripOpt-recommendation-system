@@ -33,5 +33,16 @@ def recommended():
     return response
 
 
+@app.route('/train', methods=['GET'])
+def train_engine():
+    train_engine()
+    response = app.response_class(
+        response=json.dumps({"message": "Successfully trained"}),
+        status=200,
+        mimetype='application/json'
+    )
+    return response
+
+
 if __name__ == '__main__':
     app.run(port=5000)
