@@ -35,7 +35,7 @@ def recommended():
 
 @app.route('/train', methods=['GET'])
 def train_engine():
-    train_engine()
+    main.train_engine()
     response = app.response_class(
         response=json.dumps({"message": "Successfully trained"}),
         status=200,
