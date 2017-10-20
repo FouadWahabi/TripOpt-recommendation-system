@@ -82,7 +82,7 @@ This algorithm is implemented using `Python` programming language, using the [`t
 
 ## Contributing
 
-Thanks for thinking in contributing to this system. Please email me with any suggestions: [Dear Fouad,](mailto:fouad.wahabi@gmail.com)
+Thanks for thinking in contributing to this project. Please email me with any suggestions: [Dear Fouad,](mailto:fouad.wahabi@gmail.com)
 
 
 ## Authors
