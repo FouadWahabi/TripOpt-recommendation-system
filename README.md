@@ -31,15 +31,15 @@ Soltan l bihar : (culture, restaurant, food)
 So the activies matrix will be :
 
                    night.   histo. cult.  rest.  food.
-<img src="http://api.gmath.guru/cgi-bin/gmath?%5Cdpi%7B480%7DA%20%3D%20%5Cbegin%7Bbmatrix%7D%0A%20%20%20%20%7B1%7D%20%26%20%7B0%7D%20%26%20%7B0%7D%20%26%20%7B0%7D%20%26%20%7B0%7D%20%5C%5C%0A%20%20%20%20%7B0%7D%20%26%20%7B1%7D%20%26%20%7B1%7D%20%26%20%7B0%7D%20%26%20%7B0%7D%20%5C%5C%0A%20%20%20%20%7B0%7D%20%26%20%7B0%7D%20%26%20%7B1%7D%20%26%20%7B1%7D%20%26%20%7B1%7D%20%5C%5C%0A%5Cend%7Bbmatrix%7D" style="width: 400px;"/>
+<img src="https://imgur.com/HIOAE1O" style="width: 400px;"/>
 
 Now Assuming that the weights matrix is like this :
 
-<img src="http://api.gmath.guru/cgi-bin/gmath?%5Cdpi%7B480%7D%7BW%7D%20%3D%20%5Cbegin%7Bbmatrix%7D%0A%20%20%20%20%7B1%7D%20%26%20%7B1%20%2B%2010%5E-2%7D%20%26%20%7B1%20%2B%2010%5E-2%7D%20%26%20%7B1%7D%20%26%20%7B1%7D%20%5C%5C%0A%20%20%20%20%7B1%7D%20%26%20%7B1%7D%20%26%20%7B1%7D%20%26%20%7B1%7D%20%26%20%7B1%7D%20%5C%5C%0A%5Cend%7Bbmatrix%7D" style="width: 400px;"/>
+<img src="https://imgur.com/L8N6WkN" style="width: 400px;"/>
 
 So computing the result now :
 
-<img src="http://api.gmath.guru/cgi-bin/gmath?%5Cdpi%7B480%7D%7BR%7D%20%3D%20%5Cbegin%7Bbmatrix%7D%0A%20%20%20%20%7B1%7D%20%26%20%7B1%7D%20%5C%5C%0A%20%20%20%20%7B1.002%7D%20%26%20%7B1%7D%5C%5C%0A%20%20%20%20%7B1.0006%7D%20%26%20%7B1%7D%5C%5C%0A%5Cend%7Bbmatrix%7D" style="width: 100px;"/>
+<img src="https://imgur.com/nYQPL1E" style="width: 100px;"/>
 
 And here we go we got the recommendation score of each Activity for each User.
 
