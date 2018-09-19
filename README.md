@@ -31,15 +31,15 @@ Soltan l bihar : (culture, restaurant, food)
 So the activies matrix will be :
 
                    night.   histo. cult.  rest.  food.
-<img src="https://imgur.com/HIOAE1O" style="width: 400px;"/>
+<img src="https://i.imgur.com/HIOAE1O.gif" style="width: 400px;"/>
 
 Now Assuming that the weights matrix is like this :
 
-<img src="https://imgur.com/L8N6WkN" style="width: 400px;"/>
+<img src="https://i.imgur.com/L8N6WkN.gif" style="width: 400px;"/>
 
 So computing the result now :
 
-<img src="https://imgur.com/nYQPL1E" style="width: 100px;"/>
+<img src="https://i.imgur.com/nYQPL1E.gif" style="width: 100px;"/>
 
 And here we go we got the recommendation score of each Activity for each User.
 
